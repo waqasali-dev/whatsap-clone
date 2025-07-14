@@ -1,0 +1,63 @@
+.sidebar {
+  min-width: 220px;
+  max-width: 300px;
+  width: 20vw;
+  background: #575d64;
+  border-radius: 0px 12px 12px 0px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 98vh;
+}
+
+.findUser{
+    display: flex;
+    background-color: #dee9e5;
+    border-radius: 12px;
+    justify-content: center;
+    align-items: center;
+}
+
+.findUserInput{
+    height: 30px;
+    width: 80%;
+    border-radius: 4px;
+    border: 0px;
+    color: #000000;
+    background-color: #dee9e5;
+    outline: none;
+}
+.findUserBtn{
+    height: 35px;
+    border: 0px;
+    background-color: #dee9e5;
+    color: white;
+}
+
+.searchIcon{
+  color: black;
+}
+.chats{
+  margin-top: 5px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  border-radius: 12px;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.chatWith{
+  width: 98%;
+  height: 78px;
+  border-radius: 8px;
+  background-color: #000000;
+  border-bottom: 1px solid;
+  text-align: left;
+  color: white;
+}
+
+.receivedMsg{
+  background-color: #2e2e11;
+}
