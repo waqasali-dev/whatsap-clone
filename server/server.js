@@ -7,27 +7,23 @@ import { Server } from "socket.io";
 import http from "http";
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
+dotenv.config();
 
-
-
+// Get the directory name and file name from the URL
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
 // Importing the pg module for PostgreSQL
 const { Pool } = pg;
 const app = express();
-
 const pool = new Pool({
-  user: process.env.db_user,
-  host: process.env.db_host,
-  database: process.env.db_name,
-  password: process.env.db_pass,
-  port: process.env.db_port,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT
 });
-
-
 
 let staticDir = '../chat-app/build';
 let indexPath = path.join(__dirname, staticDir, 'index.html');
@@ -42,10 +38,9 @@ pool.connect()
   .catch(err => console.error('Connection error', err.stack));
 
 const server = http.createServer(app);
-
 const io = new Server(server, {
   cors: {
-    origin: "*", 
+    origin: "*", // For development; restrict in production
     methods: ["GET", "POST"]
   }
 });
@@ -61,10 +56,13 @@ io.on("connection", (socket) => {
   });
 
   // Track active chats
-  socket.on("open_chat", ({ userId, withUserId }) => {
-    activeChats[userId] = withUserId;
-    console.log(`User ${userId} opened chat with ${withUserId}`);
+  socket.on("start_chat_session", (data) => {
+    const userId = data.userId;
+    const otherUserId = data.otherUserId;
+    console.log(`User ${userId} started chat with ${otherUserId}`);
+    activeChats[userId] = otherUserId;
   });
+  
 
   // Listen for sending messages
   socket.on("send_message", async ({ from, to, message }) => {
@@ -96,10 +94,8 @@ io.on("connection", (socket) => {
       if (receiverSocketId) {
         // Emit receive_on_Sidebar first to ensure sidebar update
         io.to(receiverSocketId).emit("receive_on_Sidebar", {
-          from,
-          message
+          from
         });
-
         // Then emit receive_message if active chat condition is met
         if (activeChats[to] === from) {
           io.to(receiverSocketId).emit("receive_message", {
@@ -202,7 +198,7 @@ app.post('/login', (req, res) => {
       }
       if (result.rows.length > 0) {
         const user = result.rows[0];
-        const isMatch = await bcrypt.compare(password, user.pass);
+        const isMatch = await bcrypt.compare(password, user.password_hash);
         if (isMatch) {
           return res.json({ message: "Login successful!", id: user.id });
         } else {
@@ -233,7 +229,7 @@ app.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     try {
       const result = await pool.query(
-        'INSERT INTO authenticate (email, pass) VALUES ($1, $2) RETURNING id',
+        'INSERT INTO authenticate (email, password_hash) VALUES ($1, $2) RETURNING id',
         [email, hashedPassword]
       );
       return res.json({ message: "Signup successful!", id: result.rows[0].id });

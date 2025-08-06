@@ -1,21 +1,24 @@
 import React, { useState, useEffect, useRef } from "react";
 import SearchIcon from '@mui/icons-material/Search';
+import PersonIcon from '@mui/icons-material/Person';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import "./Sidebar.css";
 import { io } from "socket.io-client";
 
 function Sidebar(props) {
 
-    const [conversations, setConversations] = useState([]);
     const [inputValue, setInputValue] = useState("");
-    const socketRef = useRef();
+    const [idView, setIdView] = useState(false);
+    const [findUser, setFindUser] = useState(false);
+    const [conversations, setConversations] = useState([]);
     const [openChat, setOpenChat] = useState("");
+    const socketRef = useRef();
 
     useEffect(() => {
         // Connect to socket.io server
         socketRef.current = io("http://localhost:5000");
     }, []);
 
-    // This will set the receivedMsg flag to true for the highlighted conversation
     useEffect(() => {
         if (props.sidebarHighlight){
             console.log("Sidebar highlight ID:", props.sidebarHighlight);
@@ -55,31 +58,47 @@ function Sidebar(props) {
     return (
         <div className="sidebar">
             <div className="chatHeader">
-                <h2>Chat Box</h2>
-                <p className="userId">User ID: {props.userId}</p>
-                <div className="findUser">
-                    <input
-                        className="findUserInput"
-                        type="text"
-                        onChange={(e) => setInputValue(e.target.value)}
-                        placeholder="Find user by id..."
-                    />
-                    <button
-                        className="findUserBtn"
-                        onClick={() => {
-                            if (props.userId === inputValue) {
-                                alert("You cannot chat with yourself!");
-                            } else if (!inputValue) {
-                                alert("Please enter a user ID to find.");
-                            } else {
-                                props.checkExistance(inputValue);
-                            }
-                        }}
-                    >
-                        <SearchIcon className="searchIcon" />
-                    </button>
-                </div>
+                <PersonIcon className="personIcon" onClick={() => setIdView(!idView)} />
+                {idView && (
+                    <div className="overlay" onClick={() => setIdView(false)}>
+                        <div className="idView" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="idViewText">Your User ID:</h3>
+                            <p className="idViewId">{props.userId}</p>
+                        </div>
+                    </div>
+                )}
+                <PersonAddIcon className="personAddIcon" onClick={() => setFindUser(!findUser)} />
+                {findUser && (
+                    <div className="overlay" onClick={() => setFindUser(false)}>
+                        <div className="findUserView" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="findUserText">Find User by ID:</h3>
+                            <div className="findUserInputDiv">
+                                <input
+                                    className="findUserInput"
+                                    type="text"
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    placeholder="Find user by id..."
+                                />
+                                <button
+                                    className="findUserBtn"
+                                    onClick={() => {
+                                        if (props.userId === inputValue) {
+                                            alert("You cannot chat with yourself!");
+                                        } else if (!inputValue) {
+                                            alert("Please enter a user ID to find.");
+                                        } else {
+                                            props.checkExistance(inputValue);
+                                        }
+                                    }}
+                                >
+                                    <SearchIcon className="searchIcon" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
+            <hr className="hr" />
             <div className="chats">
                 {conversations.map((conversation) => {
                     return (

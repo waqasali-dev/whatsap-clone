@@ -7,7 +7,6 @@ import "./chatbox.css";
 import { io } from "socket.io-client";
 
 function ChatBox(props) {
-  // const [inputValue, setInputValue] = useState("");
   const [receiver, setReceiver] = useState("");
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
@@ -23,15 +22,29 @@ function ChatBox(props) {
     if (props.userId) {
       socketRef.current.emit("register", props.userId);
     }
+    socketRef.current.on("chat_session_established", ({ otherUserId, initiatedBy }) => {
+      if (props.userId === otherUserId) {
+        // For the recipient user
+        setReceiver(initiatedBy);
+        alert(`${initiatedBy} wants to chat with you!`);
+        loadMessageHistory(initiatedBy);
+      }
+    });
 
     // Listen for incoming messages
     socketRef.current.on("receive_message", (data) => {
-      setMessages(prev => [...prev, {
-        sender_id: data.from,
-        message_text: data.message,
-        sent_at: data.sent_at,
-        isReceived: true
-      }]);
+      // Check if we need to load full history (if this is first message in new chat)
+      if (!receiver || receiver !== data.from) {
+        setReceiver(data.from);
+        loadMessageHistory(data.from);
+      } else {
+        setMessages(prev => [...prev, {
+          sender_id: data.from,
+          message_text: data.message,
+          sent_at: data.sent_at,
+          isReceived: true
+        }]);
+      }
     });
 
     socketRef.current.on("receive_on_Sidebar", (data) => {
@@ -60,14 +73,32 @@ function ChatBox(props) {
     };
   }, [props.userId]);
 
+  const loadMessageHistory = (otherUserId) => {
+    if (!otherUserId || !props.userId) return;
+
+    socketRef.current.emit("get_message_history", {
+      userId: props.userId,
+      otherUserId: otherUserId
+    });
+
+    socketRef.current.once("message_history", (history) => {
+      const formattedMessages = history.map(msg => ({
+        ...msg,
+        isReceived: msg.receiver_id === props.userId
+      }));
+      setMessages(formattedMessages);
+    });
+  };
+
+  useEffect(() => {
+    if (receiver && props.userId) {
+      loadMessageHistory(receiver);
+    }
+  }, [receiver, props.userId]);
+
   useEffect(() => {
     if (receiver && props.userId) {
       // Fetch message history when receiver changes
-      socketRef.current.emit("open_chat", {
-        userId: props.userId,
-        withUserId: receiver
-      });
-      // Request message history from server
       socketRef.current.emit("get_message_history", {
         userId: props.userId,
         otherUserId: receiver
@@ -89,6 +120,7 @@ function ChatBox(props) {
   }, [messages]);
 
   const checkExistance = async (input) => {
+
     try {
       const response = await fetch("/checkExistance", {
         method: "POST",
@@ -99,7 +131,11 @@ function ChatBox(props) {
       });
       const data = await response.json();
       if (data.message === "User exists") {
-        alert("User exists, you can start chatting!");
+        // Instead of just setting receiver, initiate chat session
+        socketRef.current.emit("start_chat_session", {
+          userId: props.userId,
+          otherUserId: input
+        });
         setReceiver(input);
       } else {
         alert("User does not exist. Please try again.");
@@ -108,8 +144,7 @@ function ChatBox(props) {
       console.error("Error checking user existence:", error);
       alert("An error occurred while checking user existence.");
     }
-  }
-
+  };
 
   const sendMessage = () => {
     if (!messageInput.trim() || !receiver || !props.userId) return;
@@ -126,51 +161,43 @@ function ChatBox(props) {
 
   return (
     <div className="chatboxContainer">
-      <div className="sidebarContainer">
-        <Sidebar checkExistance={checkExistance} userId={props.userId} sidebarHighlight={sidebarHighlight} />
+      <div className="sidebar">
+        <Sidebar userId={props.userId} checkExistance={checkExistance} sidebarHighlight={sidebarHighlight} />
       </div>
-      <div className="chatboxWrapper">
-        <div className="chatbox">
-          <div className="msgBox">
-            {messages.map((msg, index) => (
-              msg.isReceived ? (
-                <Received key={index} message={msg.message_text} />
-              ) : (
-                <SentMessage key={index} message={msg.message_text} />
-              )
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-          <div className="msgInputBox">
-            <textarea
-              className="msgInput"
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              placeholder="Type your message here..."
-              rows="1"
-              onKeyPress={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-            />
-            <SendIcon
-              sx={{
-                alignSelf: "center",
-                fontSize: "40px",
-                color: "black",
-                marginRight: "5px",
-                cursor: "pointer"
-              }}
-              onClick={sendMessage}
-            />
-          </div>
+      <div className="chatbox">
+        <div className="msgBox">
+          {messages.map((msg, index) => (
+            msg.isReceived ? (
+              <Received key={index} message={msg.message_text} />
+            ) : (
+              <SentMessage key={index} message={msg.message_text} />
+            )
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+        <div className="msgInputBox">
+          <textarea
+            className="msgInput"
+            value={messageInput}
+            onChange={(e) => setMessageInput(e.target.value)}
+            placeholder="Type your message here..."
+            autoFocus
+            rows="3"
+            onKeyPress={(e) => e.key === "Enter" ? (e.preventDefault(), sendMessage()) : null}
+          />
+          <SendIcon
+            sx={{
+              alignSelf: "center",
+              fontSize: "40px",
+              color: "black",
+              marginRight: "5px",
+              cursor: "pointer"
+            }}
+            onClick={sendMessage}
+          />
         </div>
       </div>
-
     </div>
-
   );
 }
 

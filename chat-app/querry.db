@@ -1,0 +1,38 @@
+CREATE TABLE authenticate (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(), -- Auto-generate UUID
+    email VARCHAR(255) UNIQUE NOT NULL,           -- Longer for modern emails
+    password_hash TEXT NOT NULL,                  -- Store hashes, never plaintext!
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE user_conversations (
+	conversation_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES authenticate(id),
+    connected_id uuid NOT NULL REFERENCES authenticate(id),
+    last_message text,
+    last_message_timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    unread_count INTEGER DEFAULT 0
+);
+
+CREATE TABLE user_connected (
+	user_id uuid NOT NULL,
+	connected_id uuid NOT NULL,
+	last_message text NOT NULL,
+	PRIMARY KEY (user_id, connected_id),
+	FOREIGN KEY (user_id) REFERENCES authenticate(id),
+	FOREIGN KEY (connected_id) REFERENCES authenticate(id)
+);
+
+CREATE TABLE messages (
+    msg_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    sender_id uuid NOT NULL,
+    receiver_id uuid NOT NULL,
+    message_text TEXT NOT NULL,  -- You forgot this critical column!
+    sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    FOREIGN KEY (sender_id) REFERENCES authenticate(id),  -- Fixed syntax
+    FOREIGN KEY (receiver_id) REFERENCES authenticate(id) -- No "TO" keyword
+);
+
+ALTER TABLE user_conversations
+ADD CONSTRAINT unique_user_conversation UNIQUE (user_id, connected_id);

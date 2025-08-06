@@ -1,29 +1,24 @@
+.chatbox {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-xl);
+  position: relative;
+  z-index: 1;
+  animation: fadeInUp 0.6s ease-out;
+  overflow: hidden;
+}
 
 .chatboxContainer {
   display: flex;
-  height: 100%;
-  width: 100%;
-  background-color: #f5f5f5;
-}
-
-.chatboxWrapper{
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  width: 100%;
   height: 100vh;
-}
-
-.chatbox {
-  background-color: aquamarine;
-  height: 100ch;
   width: 100%;
-  /* max-width: 600px;
-  min-width: 500px; */
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
+  background-color: #02101b;
 }
 
 .msgBox {
@@ -49,10 +44,12 @@
 
 .msgInput {
   width: 100%;
-  border-radius: 8px;
-  border: none;
-  height: 90%;
+  color: #000000;
+  border-radius: 5px 0px 0px 5px;
+  border: 1px solid #ccc;
+  height: 100%;
   align-items: center;
+  background-color: #ffffff;
   justify-content: center;
   font-size: large;
   resize: none;
@@ -147,4 +144,3 @@
   color: #023966;
   margin-top: -25px;
 }
-
