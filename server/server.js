@@ -8,6 +8,8 @@ import http from "http";
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import redis from './redis.js';
+import { bufferMessage, getBufferedMessages } from './redisBuffer.js';
 dotenv.config();
 
 // Get the directory name and file name from the URL
@@ -36,6 +38,10 @@ app.use(express.static(path.join(__dirname, staticDir)));
 pool.connect()
   .then(() => console.log('Connected to PostgreSQL database'))
   .catch(err => console.error('Connection error', err.stack));
+
+redis.ping()
+  .then(() => console.log('Connected to Upstash Redis'))
+  .catch(err => console.error('Redis connection error:', err));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -67,40 +73,10 @@ io.on("connection", (socket) => {
   // Listen for sending messages
   socket.on("send_message", async ({ from, to, message }) => {
     try {
-      // Store message in database
-      const result = await pool.query(
-        `INSERT INTO messages (sender_id, receiver_id, message_text)
-         VALUES ($1, $2, $3) RETURNING *`,
-        [from, to, message]
-      );
+      const sent_at = new Date().toISOString();
 
-      console.log("Message saved:", result.rows[0]);
-
-      // Update conversation for receiver (increment unread)
-      await pool.query(`
-        INSERT INTO user_conversations 
-        (user_id, connected_id, last_message, last_message_timestamp, unread_count)
-        VALUES ($1, $2, $3, $4, 1)
-        ON CONFLICT (user_id, connected_id)
-        DO UPDATE SET 
-        last_message = $3,
-        last_message_timestamp = $4,
-        unread_count = user_conversations.unread_count + 1`,
-        [to, from, message, result.rows[0].sent_at]
-      );
-
-      // Update conversation for sender (unread_count = 0)
-      await pool.query(`
-        INSERT INTO user_conversations 
-        (user_id, connected_id, last_message, last_message_timestamp, unread_count)
-        VALUES ($1, $2, $3, $4, 0)
-        ON CONFLICT (user_id, connected_id)
-        DO UPDATE SET 
-        last_message = $3,
-        last_message_timestamp = $4,
-        unread_count = 0`,
-        [from, to, message, result.rows[0].sent_at]
-      );
+      // Buffer message in Redis; flushes to PostgreSQL if count reaches 5 or after 5 seconds
+      await bufferMessage({ from, to, message, sent_at }, pool);
 
       // Fetch sender & receiver emails so both clients have full metadata immediately
       const senderUser = await pool.query('SELECT email FROM authenticate WHERE id = $1', [from]);
@@ -117,7 +93,7 @@ io.on("connection", (socket) => {
           from,
           email: senderEmail,
           message,
-          sent_at: result.rows[0].sent_at
+          sent_at
         });
 
         // Emit receive_message if receiver is currently in this active chat
@@ -126,7 +102,7 @@ io.on("connection", (socket) => {
             from,
             email: senderEmail,
             message,
-            sent_at: result.rows[0].sent_at
+            sent_at
           });
         }
       }
@@ -138,12 +114,12 @@ io.on("connection", (socket) => {
           to,
           email: receiverEmail,
           message,
-          sent_at: result.rows[0].sent_at
+          sent_at
         });
       }
 
     } catch (err) {
-      console.error("Error saving message:", err);
+      console.error("Error handling send_message with Redis buffer:", err);
     }
   });
 
@@ -168,14 +144,20 @@ io.on("connection", (socket) => {
   // Add this new event to fetch message history
   socket.on("get_message_history", async ({ userId, otherUserId }) => {
     try {
-      const result = await pool.query(
+      const dbResult = await pool.query(
         `SELECT * FROM messages 
          WHERE (sender_id = $1 AND receiver_id = $2)
          OR (sender_id = $2 AND receiver_id = $1)
          ORDER BY sent_at`,
         [userId, otherUserId]
       );
-      socket.emit("message_history", result.rows);
+
+      // Merge messages pending in Redis buffer that haven't flushed to DB yet
+      const bufferedMessages = await getBufferedMessages(userId, otherUserId);
+      const allMessages = [...dbResult.rows, ...bufferedMessages];
+      allMessages.sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
+
+      socket.emit("message_history", allMessages);
     } catch (err) {
       console.error("Error fetching message history:", err);
     }
