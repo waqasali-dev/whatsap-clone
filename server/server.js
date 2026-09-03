@@ -62,7 +62,7 @@ io.on("connection", (socket) => {
     console.log(`User ${userId} started chat with ${otherUserId}`);
     activeChats[userId] = otherUserId;
   });
-  
+
 
   // Listen for sending messages
   socket.on("send_message", async ({ from, to, message }) => {
@@ -128,7 +128,7 @@ io.on("connection", (socket) => {
         unread_count = 0`,
         [from, to, message, result.rows[0].sent_at]
       );
-      
+
     } catch (err) {
       console.error("Error saving message:", err);
     }

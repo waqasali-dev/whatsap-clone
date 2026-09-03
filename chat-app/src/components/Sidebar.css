@@ -1,109 +1,437 @@
-.sidebar{
-    min-width: 250px;
-    max-width: 350px;
-    height: 100vh;
-    background-color: #000000;
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
+.sidebarRoot {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-sidebar);
+  color: var(--text-main);
+  border-right: 1px solid var(--border-subtle);
+  overflow: hidden;
 }
 
-.chatHeader{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    padding: 10px;
-    color: #fff;
+/* Sidebar Top Header */
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background-color: var(--bg-header);
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 60px;
 }
 
-.overlay{
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
+.userProfileSummary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.hr{
-    width: 100%;
-    height: 1px;
-    background-color: #ccc;
-    margin: 10px 0px 0px 0px;
+.userAvatarBadge {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00a884 0%, #005c4b 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.idView{
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    z-index: 1001;
-    color: #00080e;
+.userHeaderDetails {
+  display: flex;
+  flex-direction: column;
 }
 
-.findUserView{
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin-top: 10px;
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    z-index: 1001;
-    color: #00080e;
+.userHeaderLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: 0.2px;
 }
 
-.findUserInputDiv{
-    display: flex;
-    height: 45px;
-    align-items: center;
+.sidebarActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.findUserInput{
-    padding: 10px;
-    height: 100%;
-    border-radius: 5px 0px 0px 5px;
-    border: 1px solid #ccc;
-    border-right: 0px;
-    margin-top: 10px;
-    font-size: 16px;
+.iconBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.findUserBtn{
-    color: #0c0000;
-    height: 100%;
-    border-radius: 0px 5px 5px 0px;
-    border: 1px solid #ccc;
-    margin-bottom: -10px;
-    border-left: 0px;
-    padding: 10px
+.iconBtn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
 }
 
-.chats{
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-    gap: 10px;
-    overflow-y: auto;
-    margin-top: 10px;
+.logoutBtn:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--error);
 }
 
-.chatWith{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgb(190, 190, 212);
-    border-radius: 8px;
+/* Search Box */
+.sidebarSearchWrapper {
+  padding: 8px 12px;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.receivedMsg{
-    background-color: rgb(33, 116, 116);
+.sidebarSearchBox {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-header);
+  border-radius: 8px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  transition: border-color var(--transition-fast);
+}
+
+.sidebarSearchBox:focus-within {
+  border-color: var(--border-focus);
+}
+
+.sidebarSearchInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+  color: var(--text-main);
+  font-size: 13.5px;
+  font-family: inherit;
+}
+
+.sidebarSearchInput::placeholder {
+  color: var(--text-dim);
+}
+
+/* Conversation List */
+.conversationList {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.emptyListNotice {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.newChatPromptBtn {
+  background: transparent;
+  border: 1px solid var(--accent-emerald);
+  color: var(--accent-emerald);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.newChatPromptBtn:hover {
+  background-color: var(--accent-emerald-glow);
+}
+
+/* Conversation Item */
+.conversationItem {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 14px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  border-bottom: 1px solid rgba(134, 150, 160, 0.07);
+}
+
+.conversationItem:hover {
+  background-color: var(--bg-hover);
+}
+
+.conversationItem.conversationActive {
+  background-color: var(--bg-active);
+}
+
+.convAvatar {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a3942 0%, #1e293b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #00a884;
+}
+
+.convDetails {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.convTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.convName {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.convTime {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.convBottomRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.convSnippet {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.hasUnreadNotice .convName {
+  font-weight: 600;
+  color: #fff;
+}
+
+.hasUnreadNotice .convSnippet {
+  color: var(--text-main);
+}
+
+.unreadBadge {
+  background-color: var(--accent-emerald);
+  color: #0b1014;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  line-height: 1.3;
+}
+
+/* Modals */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.modalCard {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 440px;
+  padding: 24px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalHeader h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.modalCloseBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.modalCloseBtn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+}
+
+.modalDescription {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.idDisplayBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 14px;
+  gap: 10px;
+}
+
+.idDisplayBox code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--accent-emerald);
+  word-break: break-all;
+}
+
+.copyBtn {
+  background-color: var(--bg-header);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.copyBtn:hover {
+  background-color: var(--bg-input);
+  border-color: var(--accent-emerald);
+}
+
+.copyBtnSuccess {
+  background-color: var(--accent-emerald);
+  color: #0b1014;
+  border-color: var(--accent-emerald);
+}
+
+.modalAlert {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.modalAlertError {
+  background-color: var(--error-bg);
+  color: var(--error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalInput {
+  background-color: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: var(--text-main);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.modalInput:focus {
+  border-color: var(--border-focus);
+}
+
+.modalBtnRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modalBtnSecondary {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modalBtnSecondary:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+}
+
+.modalBtnPrimary {
+  background-color: var(--accent-emerald);
+  border: none;
+  color: #0b1014;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modalBtnPrimary:hover {
+  background-color: var(--accent-emerald-dark);
+  color: #ffffff;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
