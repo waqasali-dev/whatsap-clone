@@ -20,9 +20,11 @@ function ChatBox(props) {
   const [receiverEmail, setReceiverEmail] = useState("");
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
+  const [socket, setSocket] = useState(null);
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
-  const [sidebarHighlight, setSidebarHighlight] = useState({ from: null, message: null });
+  const [sidebarHighlight, setSidebarHighlight] = useState({ from: null, email: null, message: null, sent_at: null });
+  const [lastSentMessage, setLastSentMessage] = useState(null);
 
   const loadMessageHistory = useCallback((otherUserId) => {
     if (!otherUserId || !props.userId || !socketRef.current) return;
@@ -42,24 +44,25 @@ function ChatBox(props) {
   }, [props.userId]);
 
   useEffect(() => {
-    socketRef.current = io("http://localhost:5000");
+    const s = io("http://localhost:5000");
+    socketRef.current = s;
+    setSocket(s);
 
     if (props.userId) {
-      socketRef.current.emit("register", props.userId);
+      s.emit("register", props.userId);
     }
 
-    socketRef.current.on("chat_session_established", ({ otherUserId, initiatedBy }) => {
+    s.on("chat_session_established", ({ otherUserId, initiatedBy }) => {
       if (props.userId === otherUserId) {
         setReceiver(initiatedBy);
         loadMessageHistory(initiatedBy);
       }
     });
 
-    socketRef.current.on("receive_message", (data) => {
+    s.on("receive_message", (data) => {
       setReceiver((currentReceiver) => {
         if (!currentReceiver || currentReceiver !== data.from) {
-          loadMessageHistory(data.from);
-          return data.from;
+          return currentReceiver;
         } else {
           setMessages((prev) => [
             ...prev,
@@ -75,14 +78,16 @@ function ChatBox(props) {
       });
     });
 
-    socketRef.current.on("receive_on_Sidebar", (data) => {
+    s.on("receive_on_Sidebar", (data) => {
       setSidebarHighlight({
         from: data.from,
+        email: data.email,
         message: data.message,
+        sent_at: data.sent_at,
       });
     });
 
-    socketRef.current.on("message_sent", (data) => {
+    s.on("message_sent", (data) => {
       setMessages((prev) => [
         ...prev,
         {
@@ -92,12 +97,16 @@ function ChatBox(props) {
           isReceived: false,
         },
       ]);
+      setLastSentMessage({
+        to: data.to,
+        email: data.email,
+        message: data.message,
+        sent_at: data.sent_at,
+      });
     });
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
+      s.disconnect();
     };
   }, [props.userId, loadMessageHistory]);
 
@@ -129,13 +138,14 @@ function ChatBox(props) {
           });
         }
         setReceiver(input);
-        return true;
+        setReceiverEmail(data.email || "");
+        return { success: true, id: data.id, email: data.email };
       } else {
-        return false;
+        return { success: false };
       }
     } catch (error) {
       console.error("Error checking user existence:", error);
-      return false;
+      return { success: false };
     }
   };
 
@@ -179,10 +189,12 @@ function ChatBox(props) {
       <div className="sidebarSection">
         <Sidebar
           userId={props.userId}
+          socket={socket}
           activeChat={receiver}
           onSelectChat={handleSelectChat}
           checkExistance={checkExistance}
           sidebarHighlight={sidebarHighlight}
+          lastSentMessage={lastSentMessage}
         />
       </div>
 

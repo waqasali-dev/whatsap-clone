@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonIcon from "@mui/icons-material/Person";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -8,7 +8,6 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import CloseIcon from "@mui/icons-material/Close";
 import { useNavigate } from "react-router-dom";
 import "./Sidebar.css";
-import { io } from "socket.io-client";
 
 function formatConversationTime(timestamp) {
   if (!timestamp) return "";
@@ -43,57 +42,120 @@ function Sidebar(props) {
   const [findError, setFindError] = useState("");
   const [copied, setCopied] = useState(false);
   const [conversations, setConversations] = useState([]);
-  const socketRef = useRef();
   const navigate = useNavigate();
 
+  // Listen for user_conversations from shared socket
   useEffect(() => {
-    socketRef.current = io("http://localhost:5000");
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
-  }, []);
+    if (!props.socket || !props.userId) return;
 
-  // Update conversation list if sidebarHighlight triggers
+    props.socket.emit("get_user_conversations", { userId: props.userId });
+
+    const handleConversations = (response) => {
+      const updated = (response || []).map((c) => ({
+        ...c,
+        receivedMsg: c.unread_count > 0 && props.activeChat !== c.connected_id,
+      }));
+      setConversations(updated);
+    };
+
+    props.socket.on("user_conversations", handleConversations);
+
+    return () => {
+      props.socket.off("user_conversations", handleConversations);
+    };
+  }, [props.socket, props.userId, props.activeChat]);
+
+  // Update conversation list when an incoming message notification arrives
   useEffect(() => {
     if (!props.sidebarHighlight || !props.sidebarHighlight.from) return;
-    const highlightId = props.sidebarHighlight.from;
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.connected_id === highlightId) {
-          return {
-            ...c,
-            last_message: props.sidebarHighlight.message || c.last_message,
-            receivedMsg: true,
-            unread_count: (c.unread_count || 0) + 1,
-          };
-        }
-        return c;
-      })
-    );
-  }, [props.sidebarHighlight]);
+    const highlight = props.sidebarHighlight;
+    const highlightId = highlight.from;
+    const isCurrentlyActive = props.activeChat === highlightId;
 
-  // Fetch conversations
-  useEffect(() => {
-    if (props.userId && socketRef.current) {
-      socketRef.current.emit("get_user_conversations", { userId: props.userId });
-
-      socketRef.current.on("user_conversations", (response) => {
-        const updated = response.map((c) => ({
-          ...c,
-          receivedMsg: c.unread_count > 0,
-        }));
-        setConversations(updated);
-      });
-    }
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.off("user_conversations");
+    setConversations((prev) => {
+      const exists = prev.some((c) => c.connected_id === highlightId);
+      let updated;
+      if (exists) {
+        updated = prev.map((c) => {
+          if (c.connected_id === highlightId) {
+            return {
+              ...c,
+              connected_email: highlight.email || c.connected_email,
+              last_message: highlight.message || c.last_message,
+              last_message_timestamp: highlight.sent_at || new Date().toISOString(),
+              receivedMsg: !isCurrentlyActive,
+              unread_count: isCurrentlyActive ? 0 : (c.unread_count || 0) + 1,
+            };
+          }
+          return c;
+        });
+      } else {
+        // Brand new contact that wasn't in conversations list before!
+        const newConv = {
+          conversation_id: highlightId,
+          connected_id: highlightId,
+          connected_email: highlight.email || "",
+          last_message: highlight.message || "",
+          last_message_timestamp: highlight.sent_at || new Date().toISOString(),
+          receivedMsg: !isCurrentlyActive,
+          unread_count: isCurrentlyActive ? 0 : 1,
+        };
+        updated = [newConv, ...prev];
       }
-    };
-  }, [props.userId]);
+      return [...updated].sort(
+        (a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp)
+      );
+    });
+
+    // Re-fetch from server to sync state with the DB
+    if (props.socket && props.userId) {
+      props.socket.emit("get_user_conversations", { userId: props.userId });
+    }
+  }, [props.sidebarHighlight, props.activeChat, props.socket, props.userId]);
+
+  // Update conversation list when the current user sends a message
+  useEffect(() => {
+    if (!props.lastSentMessage || !props.lastSentMessage.to) return;
+    const sent = props.lastSentMessage;
+    const targetId = sent.to;
+
+    setConversations((prev) => {
+      const exists = prev.some((c) => c.connected_id === targetId);
+      let updated;
+      if (exists) {
+        updated = prev.map((c) => {
+          if (c.connected_id === targetId) {
+            return {
+              ...c,
+              connected_email: sent.email || c.connected_email,
+              last_message: sent.message,
+              last_message_timestamp: sent.sent_at || new Date().toISOString(),
+              unread_count: 0,
+            };
+          }
+          return c;
+        });
+      } else {
+        const newConv = {
+          conversation_id: targetId,
+          connected_id: targetId,
+          connected_email: sent.email || "",
+          last_message: sent.message,
+          last_message_timestamp: sent.sent_at || new Date().toISOString(),
+          unread_count: 0,
+        };
+        updated = [newConv, ...prev];
+      }
+      return [...updated].sort(
+        (a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp)
+      );
+    });
+
+    // Re-fetch from server to sync state with the DB
+    if (props.socket && props.userId) {
+      props.socket.emit("get_user_conversations", { userId: props.userId });
+    }
+  }, [props.lastSentMessage, props.socket, props.userId]);
 
   const handleCopyId = () => {
     if (!props.userId) return;
@@ -122,10 +184,28 @@ function Sidebar(props) {
     }
 
     try {
-      const success = await props.checkExistance(targetId);
-      if (success !== false) {
+      const res = await props.checkExistance(targetId);
+      if (res && res.success) {
         setShowFindUserModal(false);
         setFindInput("");
+
+        // Prepend to conversations so sender sees it in the list immediately
+        setConversations((prev) => {
+          if (prev.some((c) => c.connected_id === targetId)) return prev;
+          return [
+            {
+              conversation_id: targetId,
+              connected_id: targetId,
+              connected_email: res.email || "",
+              last_message: "",
+              last_message_timestamp: new Date().toISOString(),
+              unread_count: 0,
+            },
+            ...prev,
+          ];
+        });
+
+        props.onSelectChat(targetId, res.email || "");
       } else {
         setFindError("User not found with this ID.");
       }

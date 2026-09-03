@@ -76,7 +76,7 @@ io.on("connection", (socket) => {
 
       console.log("Message saved:", result.rows[0]);
 
-      // Update conversation for receiver (increment unread) - moved up
+      // Update conversation for receiver (increment unread)
       await pool.query(`
         INSERT INTO user_conversations 
         (user_id, connected_id, last_message, last_message_timestamp, unread_count)
@@ -88,33 +88,6 @@ io.on("connection", (socket) => {
         unread_count = user_conversations.unread_count + 1`,
         [to, from, message, result.rows[0].sent_at]
       );
-
-      // Emit to receiver if online
-      const receiverSocketId = users[to];
-      if (receiverSocketId) {
-        // Emit receive_on_Sidebar first to ensure sidebar update
-        io.to(receiverSocketId).emit("receive_on_Sidebar", {
-          from
-        });
-        // Then emit receive_message if active chat condition is met
-        if (activeChats[to] === from) {
-          io.to(receiverSocketId).emit("receive_message", {
-            from,
-            message,
-            sent_at: result.rows[0].sent_at
-          });
-        }
-      }
-
-      // Also send back to sender for their own UI
-      const senderSocketId = users[from];
-      if (senderSocketId) {
-        io.to(senderSocketId).emit("message_sent", {
-          to,
-          message,
-          sent_at: result.rows[0].sent_at
-        });
-      }
 
       // Update conversation for sender (unread_count = 0)
       await pool.query(`
@@ -128,6 +101,46 @@ io.on("connection", (socket) => {
         unread_count = 0`,
         [from, to, message, result.rows[0].sent_at]
       );
+
+      // Fetch sender & receiver emails so both clients have full metadata immediately
+      const senderUser = await pool.query('SELECT email FROM authenticate WHERE id = $1', [from]);
+      const senderEmail = senderUser.rows[0]?.email || "";
+
+      const receiverUser = await pool.query('SELECT email FROM authenticate WHERE id = $1', [to]);
+      const receiverEmail = receiverUser.rows[0]?.email || "";
+
+      // Emit to receiver if online
+      const receiverSocketId = users[to];
+      if (receiverSocketId) {
+        // Emit receive_on_Sidebar with full contact metadata
+        io.to(receiverSocketId).emit("receive_on_Sidebar", {
+          from,
+          email: senderEmail,
+          message,
+          sent_at: result.rows[0].sent_at
+        });
+
+        // Emit receive_message if receiver is currently in this active chat
+        if (activeChats[to] === from) {
+          io.to(receiverSocketId).emit("receive_message", {
+            from,
+            email: senderEmail,
+            message,
+            sent_at: result.rows[0].sent_at
+          });
+        }
+      }
+
+      // Also send back to sender for their own UI
+      const senderSocketId = users[from];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("message_sent", {
+          to,
+          email: receiverEmail,
+          message,
+          sent_at: result.rows[0].sent_at
+        });
+      }
 
     } catch (err) {
       console.error("Error saving message:", err);
@@ -252,7 +265,7 @@ app.post('/checkExistance', (req, res) => {
         return res.status(500).json({ message: "Database error" });
       }
       if (result.rows.length > 0) {
-        return res.json({ message: "User exists", id: result.rows[0].id });
+        return res.json({ message: "User exists", id: result.rows[0].id, email: result.rows[0].email });
       } else {
         return res.status(404).json({ message: "User not found" });
       }
