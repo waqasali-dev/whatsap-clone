@@ -28,7 +28,7 @@ A modern, minimal, and responsive full-stack WhatsApp Web clone built with **Rea
 | :--- | :--- |
 | **Frontend** | React 19, React Router v7, Material UI Icons, Socket.IO Client, Vanilla CSS |
 | **Backend** | Node.js (ES Modules), Express 5, Socket.IO, `pg` (node-postgres), Bcrypt, Dotenv |
-| **Database** | PostgreSQL with native `gen_random_uuid()` UUIDs |
+| **Database** | PostgreSQL (Neon Cloud / Local) with UUID support & Upstash Redis buffer |
 
 ---
 
@@ -56,6 +56,9 @@ whatsap-clone/
 │
 ├── server/                   # Backend Node.js / Express Server
 │   ├── server.js             # REST API routes & Socket.IO events
+│   ├── db.js                 # PostgreSQL client (Neon Cloud & Local toggle)
+│   ├── redis.js              # Upstash Redis client
+│   ├── redisBuffer.js        # Message buffering & batch persistence logic
 │   ├── .env                  # Database and server environment configuration
 │   ├── .env.example          # Environment variables template
 │   └── package.json
@@ -75,18 +78,24 @@ whatsap-clone/
 ---
 
 ### Step 1: Database Setup
+ 
+You can use either **Neon Cloud PostgreSQL** or a **Local PostgreSQL** instance:
+ 
+- **Neon Cloud PostgreSQL (Recommended)**:
+  - Create a database project on [Neon Console](https://neon.tech).
+  - Obtain your pooled connection string.
+  - Run the schema from [`chat-app/querry.db`](file:///d:/codding/App/whatsap-clone/chat-app/querry.db) in the Neon SQL Editor.
 
-1. Open your PostgreSQL terminal (`psql`) or pgAdmin and create a new database:
-   ```sql
-   CREATE DATABASE whatsapp;
-   ```
-
-2. Run the table schema located in [`chat-app/querry.db`](file:///d:/codding/App/whatsap-clone/chat-app/querry.db):
-   ```sql
-   \c whatsapp
-   \i 'd:/codding/App/whatsap-clone/chat-app/querry.db'
-   ```
-   *Alternatively, copy and paste the contents of `chat-app/querry.db` into the pgAdmin Query Tool and execute.*
+- **Local PostgreSQL**:
+  1. Open your PostgreSQL terminal (`psql`) or pgAdmin and create a database:
+     ```sql
+     CREATE DATABASE whatsapp;
+     ```
+  2. Execute the schema:
+     ```sql
+     \c whatsapp
+     \i 'd:/codding/App/whatsap-clone/chat-app/querry.db'
+     ```
 
 #### Tables Created:
 - `authenticate`: Stores registered user accounts with email and bcrypt password hashes.
@@ -103,14 +112,19 @@ whatsap-clone/
    cd server
    ```
 
-2. Create a `.env` file (or copy from `.env.example`):
+2. Configure `.env` (switch between Neon and Local by commenting/uncommenting):
    ```env
    PORT=5000
-   DB_USER=postgres
-   DB_HOST=localhost
-   DB_NAME=whatsapp
-   DB_PASSWORD=your_postgres_password
-   DB_PORT=5432
+
+   # Neon Cloud Database (Active)
+   DATABASE_URL=postgresql://neondb_owner:npg_CjQYuEo6p0Le@ep-bitter-dawn-aex2qd7m-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+   # Local PostgreSQL Database (Switch when running locally)
+   # DATABASE_URL=postgresql://postgres:your_password@localhost:5432/whatsapp
+
+   # Upstash Redis
+   UPSTASH_REDIS_REST_URL="your_upstash_redis_rest_url"
+   UPSTASH_REDIS_REST_TOKEN="your_upstash_redis_rest_token"
    ```
 
 3. Install dependencies:

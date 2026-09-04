@@ -1,13 +1,13 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
-import pg from 'pg';
 import bcrypt from "bcrypt";
 import { Server } from "socket.io";
 import http from "http";
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import pool from './db.js';
 import redis from './redis.js';
 import { bufferMessage, getBufferedMessages } from './redisBuffer.js';
 dotenv.config();
@@ -16,16 +16,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Importing the pg module for PostgreSQL
-const { Pool } = pg;
 const app = express();
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT
-});
 
 let staticDir = '../chat-app/build';
 let indexPath = path.join(__dirname, staticDir, 'index.html');
@@ -34,10 +25,6 @@ if (!fs.existsSync(indexPath)) {
   indexPath = path.join(__dirname, staticDir, 'index.html');
 }
 app.use(express.static(path.join(__dirname, staticDir)));
-
-pool.connect()
-  .then(() => console.log('Connected to PostgreSQL database'))
-  .catch(err => console.error('Connection error', err.stack));
 
 redis.ping()
   .then(() => console.log('Connected to Upstash Redis'))
