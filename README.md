@@ -117,14 +117,14 @@ You can use either **Neon Cloud PostgreSQL** or a **Local PostgreSQL** instance:
    PORT=5000
 
    # Neon Cloud Database (Active)
-   DATABASE_URL=postgresql://neondb_owner:npg_CjQYuEo6p0Le@ep-bitter-dawn-aex2qd7m-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+   DATABASE_URL=postgresql://<neon_user>:<neon_password>@<neon_host>.neon.tech/neondb?sslmode=require&channel_binding=require
 
    # Local PostgreSQL Database (Switch when running locally)
-   # DATABASE_URL=postgresql://postgres:your_password@localhost:5432/whatsapp
+   # DATABASE_URL=postgresql://<db_user>:<db_password>@localhost:5432/whatsapp
 
    # Upstash Redis
-   UPSTASH_REDIS_REST_URL="your_upstash_redis_rest_url"
-   UPSTASH_REDIS_REST_TOKEN="your_upstash_redis_rest_token"
+   UPSTASH_REDIS_REST_URL="https://<your-redis-instance>.upstash.io"
+   UPSTASH_REDIS_REST_TOKEN="<your_upstash_redis_rest_token>"
    ```
 
 3. Install dependencies:

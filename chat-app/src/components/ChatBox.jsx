@@ -38,6 +38,7 @@ function ChatBox(props) {
       const formattedMessages = (history || []).map((msg) => ({
         ...msg,
         isReceived: msg.receiver_id === props.userId,
+        is_read: !!msg.is_read,
       }));
       setMessages(formattedMessages);
     });
@@ -68,8 +69,10 @@ function ChatBox(props) {
             ...prev,
             {
               sender_id: data.from,
+              receiver_id: props.userId,
               message_text: data.message,
               sent_at: data.sent_at,
+              is_read: true,
               isReceived: true,
             },
           ]);
@@ -84,6 +87,7 @@ function ChatBox(props) {
         email: data.email,
         message: data.message,
         sent_at: data.sent_at,
+        is_read: data.is_read,
       });
     });
 
@@ -91,9 +95,11 @@ function ChatBox(props) {
       setMessages((prev) => [
         ...prev,
         {
+          sender_id: props.userId,
           receiver_id: data.to,
           message_text: data.message,
           sent_at: data.sent_at,
+          is_read: !!data.is_read,
           isReceived: false,
         },
       ]);
@@ -102,7 +108,21 @@ function ChatBox(props) {
         email: data.email,
         message: data.message,
         sent_at: data.sent_at,
+        is_read: !!data.is_read,
       });
+    });
+
+    // Real-time listener: when other user reads our sent messages
+    s.on("messages_read", ({ readerId }) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          // If message was sent to this reader, mark as read
+          if (!msg.isReceived && (msg.receiver_id === readerId || !msg.receiver_id)) {
+            return { ...msg, is_read: true };
+          }
+          return msg;
+        })
+      );
     });
 
     return () => {
@@ -154,6 +174,10 @@ function ChatBox(props) {
     setReceiverEmail(connectedEmail || "");
     if (socketRef.current) {
       socketRef.current.emit("start_chat_session", {
+        userId: props.userId,
+        otherUserId: connectedId,
+      });
+      socketRef.current.emit("mark_messages_read", {
         userId: props.userId,
         otherUserId: connectedId,
       });
@@ -245,6 +269,7 @@ function ChatBox(props) {
                       key={msg.msg_id || index}
                       message={msg.message_text}
                       sentAt={msg.sent_at}
+                      isRead={msg.is_read}
                     />
                   )
                 )

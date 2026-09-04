@@ -56,26 +56,27 @@ export async function flushMessages(convKey, pool) {
     try {
       await client.query('BEGIN');
 
-      // 1. Bulk insert messages into PostgreSQL
+      // 1. Bulk insert messages into PostgreSQL with is_read column
       const valueClauses = [];
       const queryParams = [];
       let paramIdx = 1;
 
       for (const msg of messages) {
         valueClauses.push(
-          `($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3})`
+          `($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4})`
         );
         queryParams.push(
           msg.sender_id,
           msg.receiver_id,
           msg.message_text,
-          msg.sent_at
+          msg.sent_at,
+          msg.is_read || false
         );
-        paramIdx += 4;
+        paramIdx += 5;
       }
 
       await client.query(
-        `INSERT INTO messages (sender_id, receiver_id, message_text, sent_at)
+        `INSERT INTO messages (sender_id, receiver_id, message_text, sent_at, is_read)
          VALUES ${valueClauses.join(', ')}`,
         queryParams
       );
@@ -86,7 +87,9 @@ export async function flushMessages(convKey, pool) {
       // 3. Count unread messages per recipient in this batch
       const unreadCounts = {};
       for (const msg of messages) {
-        unreadCounts[msg.receiver_id] = (unreadCounts[msg.receiver_id] || 0) + 1;
+        if (!msg.is_read) {
+          unreadCounts[msg.receiver_id] = (unreadCounts[msg.receiver_id] || 0) + 1;
+        }
       }
 
       // Update conversation for each receiver
@@ -115,7 +118,26 @@ export async function flushMessages(convKey, pool) {
         );
       }
 
-      // Update sender conversation (unread_count = 0)
+      // If receiver had 0 unread in this batch (e.g. connected in chat), make sure last_message is updated
+      if (!unreadCounts[lastMsg.receiver_id]) {
+        await client.query(
+          `INSERT INTO user_conversations 
+           (user_id, connected_id, last_message, last_message_timestamp, unread_count)
+           VALUES ($1, $2, $3, $4, 0)
+           ON CONFLICT (user_id, connected_id)
+           DO UPDATE SET 
+             last_message = $3,
+             last_message_timestamp = $4`,
+          [
+            lastMsg.receiver_id,
+            lastMsg.sender_id,
+            lastMsg.message_text,
+            lastMsg.sent_at,
+          ]
+        );
+      }
+
+      // Update sender conversation (unread_count remains 0)
       await client.query(
         `INSERT INTO user_conversations 
          (user_id, connected_id, last_message, last_message_timestamp, unread_count)
@@ -161,7 +183,7 @@ export async function flushMessages(convKey, pool) {
  * 1. Buffer reaches 5 messages between two users.
  * 2. OR 5 seconds elapse since the first buffered message in that conversation.
  */
-export async function bufferMessage({ from, to, message, sent_at }, pool) {
+export async function bufferMessage({ from, to, message, sent_at, is_read = false }, pool) {
   const convKey = getConversationKey(from, to);
   const bufferKey = `messages:buffer:${convKey}`;
 
@@ -170,6 +192,7 @@ export async function bufferMessage({ from, to, message, sent_at }, pool) {
     receiver_id: to,
     message_text: message,
     sent_at,
+    is_read: !!is_read,
   };
 
   // Push message into Redis list
@@ -177,7 +200,7 @@ export async function bufferMessage({ from, to, message, sent_at }, pool) {
   const currentLength = await redis.llen(bufferKey);
 
   console.log(
-    `[Redis Buffer] Conversation [${convKey}] count: ${currentLength}/${BATCH_SIZE}`
+    `[Redis Buffer] Conversation [${convKey}] count: ${currentLength}/${BATCH_SIZE} (is_read: ${!!is_read})`
   );
 
   // Condition 1: Hit 5 messages between two users -> flush immediately
@@ -199,6 +222,40 @@ export async function bufferMessage({ from, to, message, sent_at }, pool) {
 
       flushTimers.set(convKey, timer);
     }
+  }
+}
+
+/**
+ * Marks unread buffered messages in Redis as read for a given reader.
+ */
+export async function markBufferMessagesAsRead(userId1, userId2, readerId) {
+  try {
+    const convKey = getConversationKey(userId1, userId2);
+    const bufferKey = `messages:buffer:${convKey}`;
+    const raw = await redis.lrange(bufferKey, 0, -1);
+    if (!raw || raw.length === 0) return;
+
+    let hasChanges = false;
+    const updated = raw.map((m) => {
+      const msg = typeof m === 'string' ? JSON.parse(m) : m;
+      if (msg.receiver_id === readerId && !msg.is_read) {
+        msg.is_read = true;
+        hasChanges = true;
+      }
+      return msg;
+    });
+
+    if (hasChanges) {
+      const pipeline = redis.pipeline();
+      pipeline.del(bufferKey);
+      for (const item of updated) {
+        pipeline.rpush(bufferKey, item);
+      }
+      await pipeline.exec();
+      console.log(`[Redis Buffer] Marked buffered messages as read for reader [${readerId}]`);
+    }
+  } catch (err) {
+    console.error('[Redis Buffer Error] Failed to mark buffer messages as read:', err);
   }
 }
 

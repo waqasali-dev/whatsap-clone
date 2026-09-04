@@ -28,10 +28,11 @@ CREATE TABLE messages (
     msg_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     sender_id uuid NOT NULL,
     receiver_id uuid NOT NULL,
-    message_text TEXT NOT NULL,  -- You forgot this critical column!
+    message_text TEXT NOT NULL,
     sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    FOREIGN KEY (sender_id) REFERENCES authenticate(id),  -- Fixed syntax
-    FOREIGN KEY (receiver_id) REFERENCES authenticate(id) -- No "TO" keyword
+    is_read BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (sender_id) REFERENCES authenticate(id),
+    FOREIGN KEY (receiver_id) REFERENCES authenticate(id)
 );
 
 ALTER TABLE user_conversations

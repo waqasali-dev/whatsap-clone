@@ -18,7 +18,9 @@ function Received(props) {
     <div className="msgRow themRow">
       <div className="them">
         <p className="msgText">{props.message}</p>
-        {timeStr && <span className="msgTime">{timeStr}</span>}
+        <div className="msgMeta">
+          {timeStr && <span className="msgTime">{timeStr}</span>}
+        </div>
       </div>
     </div>
   );

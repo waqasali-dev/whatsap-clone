@@ -224,9 +224,32 @@
 .msgTime {
   font-size: 10.5px;
   color: rgba(255, 255, 255, 0.55);
-  margin-top: 4px;
-  align-self: flex-end;
   font-weight: 400;
+  user-select: none;
+}
+
+.msgMeta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  align-self: flex-end;
+}
+
+.msgStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all var(--transition-fast);
+}
+
+.msgStatus.statusRead svg {
+  color: #10b981 !important; /* Emerald green double tick */
+}
+
+.msgStatus.statusUnread svg {
+  color: rgba(255, 255, 255, 0.45) !important; /* Grey single tick */
 }
 
 /* Input Bar Dock */

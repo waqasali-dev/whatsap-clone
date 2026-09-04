@@ -58,10 +58,18 @@ function Sidebar(props) {
       setConversations(updated);
     };
 
+    const handleMessagesRead = () => {
+      if (props.socket && props.userId) {
+        props.socket.emit("get_user_conversations", { userId: props.userId });
+      }
+    };
+
     props.socket.on("user_conversations", handleConversations);
+    props.socket.on("messages_read", handleMessagesRead);
 
     return () => {
       props.socket.off("user_conversations", handleConversations);
+      props.socket.off("messages_read", handleMessagesRead);
     };
   }, [props.socket, props.userId, props.activeChat]);
 

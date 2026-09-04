@@ -9,7 +9,7 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import pool from './db.js';
 import redis from './redis.js';
-import { bufferMessage, getBufferedMessages } from './redisBuffer.js';
+import { bufferMessage, getBufferedMessages, markBufferMessagesAsRead } from './redisBuffer.js';
 dotenv.config();
 
 // Get the directory name and file name from the URL
@@ -48,22 +48,85 @@ io.on("connection", (socket) => {
     console.log(`User ${userId} connected with socket ${socket.id}`);
   });
 
-  // Track active chats
-  socket.on("start_chat_session", (data) => {
+  // Track active chats and mark received messages as read
+  socket.on("start_chat_session", async (data) => {
     const userId = data.userId;
     const otherUserId = data.otherUserId;
     console.log(`User ${userId} started chat with ${otherUserId}`);
     activeChats[userId] = otherUserId;
+
+    try {
+      // 1. Mark unread messages received by this user as read in PostgreSQL
+      await pool.query(
+        `UPDATE messages SET is_read = TRUE 
+         WHERE sender_id = $1 AND receiver_id = $2 AND is_read = FALSE`,
+        [otherUserId, userId]
+      );
+
+      // 2. Reset unread count for this user in user_conversations
+      await pool.query(
+        `UPDATE user_conversations SET unread_count = 0 
+         WHERE user_id = $1 AND connected_id = $2`,
+        [userId, otherUserId]
+      );
+
+      // 3. Mark pending messages in Redis buffer as read
+      await markBufferMessagesAsRead(userId, otherUserId, userId);
+
+      // 4. Notify sender in real time if online that their messages were read
+      const senderSocketId = users[otherUserId];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messages_read", {
+          readerId: userId,
+          otherUserId: otherUserId
+        });
+      }
+    } catch (err) {
+      console.error("Error marking messages as read on start_chat_session:", err);
+    }
   });
 
+  // Dedicated event to mark messages as read
+  socket.on("mark_messages_read", async ({ userId, otherUserId }) => {
+    if (!userId || !otherUserId) return;
+    try {
+      await pool.query(
+        `UPDATE messages SET is_read = TRUE 
+         WHERE sender_id = $1 AND receiver_id = $2 AND is_read = FALSE`,
+        [otherUserId, userId]
+      );
+
+      await pool.query(
+        `UPDATE user_conversations SET unread_count = 0 
+         WHERE user_id = $1 AND connected_id = $2`,
+        [userId, otherUserId]
+      );
+
+      await markBufferMessagesAsRead(userId, otherUserId, userId);
+
+      const senderSocketId = users[otherUserId];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messages_read", {
+          readerId: userId,
+          otherUserId: otherUserId
+        });
+      }
+    } catch (err) {
+      console.error("Error in mark_messages_read:", err);
+    }
+  });
 
   // Listen for sending messages
   socket.on("send_message", async ({ from, to, message }) => {
     try {
       const sent_at = new Date().toISOString();
 
-      // Buffer message in Redis; flushes to PostgreSQL if count reaches 5 or after 5 seconds
-      await bufferMessage({ from, to, message, sent_at }, pool);
+      // Check if receiver is currently connected to sender in active chat
+      const isConnectedInChat = activeChats[to] === from;
+      const is_read = isConnectedInChat;
+
+      // Buffer message in Redis with is_read status; flushes to DB if count reaches 5 or after 5s
+      await bufferMessage({ from, to, message, sent_at, is_read }, pool);
 
       // Fetch sender & receiver emails so both clients have full metadata immediately
       const senderUser = await pool.query('SELECT email FROM authenticate WHERE id = $1', [from]);
@@ -75,33 +138,36 @@ io.on("connection", (socket) => {
       // Emit to receiver if online
       const receiverSocketId = users[to];
       if (receiverSocketId) {
-        // Emit receive_on_Sidebar with full contact metadata
+        // Emit receive_on_Sidebar with full contact metadata and read status
         io.to(receiverSocketId).emit("receive_on_Sidebar", {
           from,
           email: senderEmail,
           message,
-          sent_at
+          sent_at,
+          is_read
         });
 
         // Emit receive_message if receiver is currently in this active chat
-        if (activeChats[to] === from) {
+        if (isConnectedInChat) {
           io.to(receiverSocketId).emit("receive_message", {
             from,
             email: senderEmail,
             message,
-            sent_at
+            sent_at,
+            is_read: true
           });
         }
       }
 
-      // Also send back to sender for their own UI
+      // Also send back to sender for their own UI with is_read status
       const senderSocketId = users[from];
       if (senderSocketId) {
         io.to(senderSocketId).emit("message_sent", {
           to,
           email: receiverEmail,
           message,
-          sent_at
+          sent_at,
+          is_read
         });
       }
 
@@ -110,7 +176,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Add this new event to fetch user conversations
+  // Fetch user conversations
   socket.on("get_user_conversations", async ({ userId }) => {
     try {
       const result = await pool.query(
@@ -128,11 +194,35 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Add this new event to fetch message history
+  // Fetch message history and mark unread as read
   socket.on("get_message_history", async ({ userId, otherUserId }) => {
     try {
+      // Mark messages sent by otherUserId to userId as read
+      await pool.query(
+        `UPDATE messages SET is_read = TRUE 
+         WHERE sender_id = $1 AND receiver_id = $2 AND is_read = FALSE`,
+        [otherUserId, userId]
+      );
+
+      await pool.query(
+        `UPDATE user_conversations SET unread_count = 0 
+         WHERE user_id = $1 AND connected_id = $2`,
+        [userId, otherUserId]
+      );
+
+      await markBufferMessagesAsRead(userId, otherUserId, userId);
+
+      const senderSocketId = users[otherUserId];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messages_read", {
+          readerId: userId,
+          otherUserId: otherUserId
+        });
+      }
+
       const dbResult = await pool.query(
-        `SELECT * FROM messages 
+        `SELECT msg_id, sender_id, receiver_id, message_text, sent_at, is_read 
+         FROM messages 
          WHERE (sender_id = $1 AND receiver_id = $2)
          OR (sender_id = $2 AND receiver_id = $1)
          ORDER BY sent_at`,
@@ -160,9 +250,7 @@ io.on("connection", (socket) => {
       }
     }
     console.log(`Socket ${socket.id} disconnected`);
-
   });
-
 });
 
 

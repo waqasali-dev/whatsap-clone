@@ -1,4 +1,6 @@
 import React from "react";
+import DoneIcon from "@mui/icons-material/Done";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
 import "./chatbox.css";
 
 function formatTime(timestamp) {
@@ -13,12 +15,25 @@ function formatTime(timestamp) {
 
 function SentMessage(props) {
   const timeStr = formatTime(props.sentAt || props.time);
+  const isRead = !!props.isRead;
 
   return (
     <div className="msgRow meRow">
       <div className="me">
         <p className="msgText">{props.message}</p>
-        {timeStr && <span className="msgTime">{timeStr}</span>}
+        <div className="msgMeta">
+          {timeStr && <span className="msgTime">{timeStr}</span>}
+          <span
+            className={`msgStatus ${isRead ? "statusRead" : "statusUnread"}`}
+            title={isRead ? "Read" : "Sent"}
+          >
+            {isRead ? (
+              <DoneAllIcon sx={{ fontSize: 16 }} />
+            ) : (
+              <DoneIcon sx={{ fontSize: 15 }} />
+            )}
+          </span>
+        </div>
       </div>
     </div>
   );
