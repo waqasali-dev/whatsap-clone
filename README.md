@@ -146,17 +146,26 @@ You can use either **Neon Cloud PostgreSQL** or a **Local PostgreSQL** instance:
 
 ### Step 3: Frontend Setup & Startup
 
-1. Open a new terminal and navigate to the `chat-app` directory:
+1. Navigate to the `chat-app` directory:
    ```bash
    cd chat-app
    ```
 
-2. Install dependencies:
+2. Configure `.env` (switch between Render and Local by commenting/uncommenting):
+   ```env
+   # Render Cloud Backend (Active)
+   REACT_APP_BACKEND_URL=https://whatsap-clone-1.onrender.com
+
+   # Local Backend (Switch when running locally)
+   # REACT_APP_BACKEND_URL=http://localhost:5000
+   ```
+
+3. Install dependencies:
    ```bash
    npm install
    ```
 
-3. Start the React development server:
+4. Start the React development server:
    ```bash
    npm start
    ```

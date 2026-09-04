@@ -3,6 +3,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import ChatIcon from "@mui/icons-material/Chat";
 import { Link, useNavigate } from "react-router-dom";
+import { BACKEND_URL } from "../config";
 import "./chatbox.css";
 
 function LoginPage(props) {
@@ -19,7 +20,7 @@ function LoginPage(props) {
     setLoading(true);
 
     try {
-      const response = await fetch("/login", {
+      const response = await fetch(`${BACKEND_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

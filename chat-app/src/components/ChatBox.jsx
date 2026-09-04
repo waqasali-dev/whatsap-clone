@@ -8,6 +8,7 @@ import Received from "./ReceiveMsg";
 import Sidebar from "./Sidebar";
 import "./chatbox.css";
 import { io } from "socket.io-client";
+import { BACKEND_URL } from "../config";
 
 function getInitials(name) {
   if (!name) return "?";
@@ -45,7 +46,7 @@ function ChatBox(props) {
   }, [props.userId]);
 
   useEffect(() => {
-    const s = io("http://localhost:5000");
+    const s = io(BACKEND_URL);
     socketRef.current = s;
     setSocket(s);
 
@@ -142,7 +143,7 @@ function ChatBox(props) {
 
   const checkExistance = async (input) => {
     try {
-      const response = await fetch("/checkExistance", {
+      const response = await fetch(`${BACKEND_URL}/checkExistance`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
