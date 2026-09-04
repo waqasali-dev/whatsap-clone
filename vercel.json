@@ -1,0 +1,10 @@
+{
+  "buildCommand": "cd chat-app && npm install && npm run build",
+  "outputDirectory": "chat-app/build",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

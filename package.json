@@ -1,0 +1,9 @@
+{
+  "name": "whatsap-clone",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --prefix chat-app",
+    "start": "npm start --prefix server"
+  }
+}
