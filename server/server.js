@@ -332,11 +332,19 @@ app.post('/checkExistance', (req, res) => {
   }
 });
 
-// app.get('*', (req, res) => {
-//   res.sendFile(indexPath);
-// });
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/', (req, res) => {
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(200).send('WhatsApp Clone Backend & Socket.IO server is running!');
+  }
+});
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server listening on port ${PORT}`);
 });
